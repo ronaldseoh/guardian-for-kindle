@@ -24,11 +24,12 @@ from shutil import copyfile
 from datetime import date
 from subprocess import Popen, check_call, call, PIPE
 from hashlib import sha1
-from urllib2 import urlopen, HTTPError
+from urllib.request import urlopen
+from urllib.error import HTTPError
 import lxml
 from lxml import etree
 import time
-from StringIO import StringIO
+from io import StringIO
 import errno
 from lxml.builder import E
 from lxml.html import fragments_fromstring
@@ -107,7 +108,7 @@ def backticks(command):
 
 font_filename = backticks(['fc-match','-f','%{file}','Helvetica'])
 if not font_filename:
-    print "Failed to find a font matching Helvetica"
+    print("Failed to find a font matching Helvetica")
     sys.exit(1)
 
 # Use the Python Imaging Library (PIL) to draw a simple cover image:
@@ -171,8 +172,8 @@ def url_to_element_tree(url):
     if not os.path.exists(filename):
         try:
             text = urlopen(url).read()
-        except HTTPError, e:
-            print "e is:", e
+        except HTTPError as e:
+            print("e is:", e)
             if e.code == 403:
                 time.sleep(sleep_seconds_after_api_call)
                 error_message = get_error_message_from_content(e)
@@ -182,7 +183,7 @@ def url_to_element_tree(url):
                 time.sleep(sleep_seconds_after_api_call)
                 raise ArticleMissing(get_error_message_from_content(e))
             else:
-                raise Exception, "An unexpected HTTPError was returned: "+str(e)
+                raise Exception("An unexpected HTTPError was returned: "+str(e))
         # Sleep to avoid making API requests faster than is allowed:
         time.sleep(sleep_seconds_after_api_call)
         with open(filename,"w") as fp:
@@ -214,7 +215,7 @@ files = []
 
 def strip_html(s):
     if s:
-        return unicode(lxml.html.fromstring(s).text_content())
+        return str(lxml.html.fromstring(s).text_content())
     else:
         return ""
 
@@ -246,7 +247,7 @@ with open(today_filename) as fp:
     element_tree = etree.parse(today_filename,html_parser)
     page_number = 1
     for section, links in get_sections_and_links(element_tree):
-        print section
+        print(section)
         for link_url, link_text in links:
             headline = '[No headline found]'
             standfirst = None
@@ -260,21 +261,21 @@ with open(today_filename) as fp:
 
             m = re.search('https?://www\.theguardian\.com/(.*)$',link_url)
             if not m:
-                print u"  Warning: failed to parse the link: '{0}'".format(link_url)
+                print("  Warning: failed to parse the link: '{0}'".format(link_url))
                 continue
             item_id = m.group(1)
-            print "  "+item_id
+            print("  "+item_id)
             item_url = make_item_url(item_id)
             try:
                 element_tree = url_to_element_tree(item_url)
 
                 response_element = element_tree.getroot()
                 if response_element.tag != 'response':
-                    print "The root tag unexpectedly wasn't \"response\"."
+                    print("The root tag unexpectedly wasn't \"response\".")
                     sys.exit(1)
                 status = response_element.attrib['status']
                 if status != "ok":
-                    print "    The response element's status was \"{0}\" (i.e. not \"ok\") Skipping...".format(status)
+                    print("    The response element's status was \"{0}\" (i.e. not \"ok\") Skipping...".format(status))
                     continue
 
                 content = element_tree.find('//content')
@@ -300,11 +301,11 @@ with open(today_filename) as fp:
                         publication = field.text
 
                 if body and re.search('Redistribution rights for this field are unavailable',body) and len(body) < 100:
-                    print "    Warning: no redistribution rights available for that article"
+                    print("    Warning: no redistribution rights available for that article")
                     body = "<p><b>Redistribution rights for this article were not available.</b></p>"
 
             except (ArticleMissing, ArticleAccessDenied) as e:
-                print "    Warning: couldn't fetch that article"
+                print("    Warning: couldn't fetch that article")
                 headline = link_text
                 body = "<p><b>The Guardian Open Platform returned an error for that article: {0}</b></p>".format(e)
                 body += '<p>You can still try <a href="{0}">the original article link</a></p>'.format(link_url)
@@ -314,7 +315,7 @@ with open(today_filename) as fp:
             html_body = E.body(E.h3(headline))
             if byline:
                 html_body.append( E.h4('By '+byline) )
-            html_body.append( E.p(u'[{s}]'.format(s=section)) )
+            html_body.append( E.p('[{s}]'.format(s=section)) )
             if standfirst:
                 standfirst_fragments = fragments_fromstring(standfirst)
                 standfirst_element = E.p( E.em( *standfirst_fragments ) )
@@ -348,7 +349,7 @@ with open(today_filename) as fp:
 
             html = E.html({ "xmlns": 'http://www.w3.org/1999/xhtml', "{http://www.w3.org/XML/1998/namespace}lang" : 'en', "lang": 'en' },
                     E.head( E.meta( { 'http-equiv' : 'Content-Type', 'content' : 'http://www.w3.org/1999/xhtml; charset=utf-8' } ),
-                        E.title( u'{g} on {t}: [{p}] {h}'.format( g=paper, t=today, p=page_number, h=headline ) ),
+                        E.title( '{g} on {t}: [{p}] {h}'.format( g=paper, t=today, p=page_number, h=headline ) ),
                         E.meta( { 'name': 'author', 'content' : byline if byline else ''} ),
                         E.meta( { 'name': 'description', 'content' : standfirst if standfirst else ''} ) ),
                     html_body )
@@ -379,7 +380,7 @@ def extension_to_media_type(extension):
     elif extension == 'ncx':
         return 'application/x-dtbncx+xml'
     else:
-        raise Exception, "Unknown extension: "+extension
+        raise Exception("Unknown extension: "+extension)
 
 contents_filename = "contents.html"
 nav_contents_filename = "nav-contents.ncx"
@@ -595,9 +596,9 @@ with open(opf_filename,"w") as fp:
 with open("/dev/null","w") as null:
     try:
         call(['kindlegen','-c2','-o',mobi_filename,opf_filename])
-    except OSError, e:
+    except OSError as e:
         if e.errno == errno.ENOENT:
-            print "Warning: kindlegen was not on your path; not generating .mobi version"
+            print("Warning: kindlegen was not on your path; not generating .mobi version")
         else:
             raise
 
