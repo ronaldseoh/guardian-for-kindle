@@ -2,6 +2,7 @@
 
 # Copyright 2010, 2011 Mark Longair
 # Copyright 2011 Dominic Evans
+# Copyright 2017 Ronald Seoh
 #
 #   This program is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU Affero General Public License as
@@ -56,8 +57,7 @@ sleep_seconds_after_api_call = 2
 
 api_key = None
 
-with open(os.path.join(os.environ['HOME'],
-                       '.guardian-open-platform-key')) as fp:
+with open(os.path.join('guardian-open-platform-key')) as fp:
     api_key = fp.read().strip()
 
 def ordinal_suffix(n):
@@ -107,6 +107,7 @@ def backticks(command):
         return c[0]
 
 font_filename = backticks(['fc-match','-f','%{file}','Helvetica'])
+
 if not font_filename:
     print("Failed to find a font matching Helvetica")
     sys.exit(1)
@@ -117,12 +118,13 @@ im = Image.new("L",(w,h),"white")
 
 logo_filename = os.path.join(
     "..",
-    ("observer" if sunday else "guardian")+"-logo-500.png")
+    ("observer" if sunday else "guardian")+"-logo-500.png"
+)
 
 im_logo = Image.open(logo_filename)
 logo_size = im_logo.size
 
-im.paste(im_logo,((w-logo_size[0])/2,top_offset))
+im.paste(im_logo, ((w-logo_size[0])//2, top_offset))
 
 subtitle = [ today_long,
              '',
@@ -171,7 +173,7 @@ def url_to_element_tree(url):
     filename = h+".xml"
     if not os.path.exists(filename):
         try:
-            text = urlopen(url).read()
+            text = str(urlopen(url).read(), encoding='utf-8')
         except HTTPError as e:
             print("e is:", e)
             if e.code == 403:
@@ -184,10 +186,13 @@ def url_to_element_tree(url):
                 raise ArticleMissing(get_error_message_from_content(e))
             else:
                 raise Exception("An unexpected HTTPError was returned: "+str(e))
+
         # Sleep to avoid making API requests faster than is allowed:
         time.sleep(sleep_seconds_after_api_call)
+
         with open(filename,"w") as fp:
             fp.write(text)
+
     return etree.parse(filename)
 
 # ========================================================================
@@ -198,7 +203,7 @@ today_page_url = "http://www.theguardian.com/theguardian"
 if sunday:
     today_page_url = "http://www.theguardian.com/theobserver"
 
-today_page = urlopen(today_page_url).read()
+today_page = str(urlopen(today_page_url).read(), encoding='utf-8')
 today_filename = 'today.html'
 
 with open(today_filename,"w") as fp:
@@ -324,8 +329,13 @@ with open(today_filename) as fp:
                 extension = re.sub('^.*\.','',thumbnail)
                 thumbnail_filename = "{0:03d}-thumb.{1:}".format(page_number,extension)
                 if not os.path.exists(thumbnail_filename):
-                    with open(thumbnail_filename,"w") as fp:
-                        fp.write(urlopen(thumbnail.encode('utf-8')).read())
+                    # thumbnail seems to be a binary, not a text string.
+                    with open(thumbnail_filename,"wb") as fp:
+                        fp.write(
+                            urlopen(
+                                thumbnail
+                            ).read()
+                        )
                 files.append(thumbnail_filename)
                 html_body.append( E.p( E.img( { 'src': thumbnail_filename } ) ) )
             if body:
@@ -334,10 +344,12 @@ with open(today_filename) as fp:
                 for i, image_element in enumerate(image_elements):
                     ad_url = image_element.attrib['src']
                     ad_image_data = urlopen(ad_url).read()
+
                     ad_image_hash = sha1(ad_image_data).hexdigest()
                     ad_filename = 'ad-{0}.gif'.format(ad_image_hash)
                     if not os.path.exists(ad_filename):
-                        with open(ad_filename,'w') as fp:
+                        # ad_image_data seems to be a binary
+                        with open(ad_filename,'wb') as fp:
                             fp.write(ad_image_data)
                         files.append(ad_filename)
                     image_element.attrib['src'] = ad_filename
@@ -355,7 +367,7 @@ with open(today_filename) as fp:
                     html_body )
 
             with open(page_filename,"w") as page_fp:
-                page_fp.write( etree.tostring(html,pretty_print=True) )
+                page_fp.write( str(etree.tostring(html,pretty_print=True)) )
 
             filename_to_headline[page_filename] = strip_html(headline)
             filename_to_section[page_filename] = section
@@ -417,7 +429,7 @@ with open(contents_filename,"w") as fp:
                       'content' : 'text/html; charset=utf-8' } ),
             E.title( "Table of Contents" ) ),
                    body_element )
-    fp.write(etree.tostring(html,pretty_print=True))
+    fp.write(str(etree.tostring(html,pretty_print=True), encoding='utf-8'))
 
 filename_to_headline[contents_filename] = "Table of Contents"
 
@@ -515,10 +527,10 @@ with open(nav_contents_filename,"w") as fp:
     # I don't think there's an elegant way of setting the
     # doctype using lxml.etree, but I could be wrong...
     fp.write('<!DOCTYPE ncx PUBLIC "-//NISO//DTD ncx 2005-1//EN" "http://www.daisy.org/z3986/2005/ncx-2005-1.dtd">'+"\n")
-    fp.write(etree.tostring(ncx,
+    fp.write(str(etree.tostring(ncx,
                             pretty_print=True,
                             encoding="utf-8",
-                            xml_declaration=False))
+                            xml_declaration=False), encoding='utf-8'))
 
 # ========================================================================
 
@@ -584,7 +596,7 @@ etree.SubElement(guide,"reference",
                          "title":filename_to_headline['001.html'],
                          "href":'001.html'})
 
-with open(opf_filename,"w") as fp:
+with open(opf_filename,"wb") as fp:
     opf_element_tree = etree.ElementTree(package)
     opf_element_tree.write(fp,
                            pretty_print=True,
@@ -601,5 +613,3 @@ with open("/dev/null","w") as null:
             print("Warning: kindlegen was not on your path; not generating .mobi version")
         else:
             raise
-
- # vim: set expandtab :
