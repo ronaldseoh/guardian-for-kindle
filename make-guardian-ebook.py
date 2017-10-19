@@ -36,6 +36,9 @@ from lxml.builder import E
 from lxml.html import fragments_fromstring
 from PIL import Image, ImageDraw, ImageFont
 
+from bws_mailer import EmailSender
+import base64
+
 # This script will create an opf version of The Guardian (or The
 # Observer on Sunday) suitable for turning into a .mobi file for
 # copying to your Kindle.
@@ -57,11 +60,13 @@ blacklisted_section_names = ['pictures']
 
 get_paper_articles = False
 
+email_send = True
+
 sleep_seconds_after_api_call = 2
 
 api_key = None
 
-with open(os.path.join('guardian-open-platform-key')) as fp:
+with open('guardian-open-platform-key') as fp:
     api_key = fp.read().strip()
 
 def ordinal_suffix(n):
@@ -166,7 +171,7 @@ def make_item_url(item_id):
 
 def get_error_message_from_content(http_error):
     try:
-        error_data = json.load(http_error.fp)
+        error_data = json.loads(str(http_error.fp.read()))
         return error_data.get('response', {}).get('message', '')
     except ValueError:
         # In which case it's probably just not JSON in the response:
@@ -635,3 +640,27 @@ with open("/dev/null","w") as null:
             print("Warning: kindlegen was not on your path; not generating .mobi version")
         else:
             raise
+
+if email_send:
+    with open(os.path.join("..","send_to_kindle_config.json"), 'r') as config_file:
+        config = json.load(config_file)
+
+    # We will encode the email id/pw with base64, to make them look obscure (but not really) on config files.
+    config['email_id'] = base64.b64decode(config['email_id']).decode('ascii')
+    config['email_pw'] = base64.b64decode(config['email_pw']).decode('ascii')
+
+    # Create EmailSender instance
+    sender = EmailSender(
+        id=config['email_id'],
+        password=config['email_pw'],
+        smtp_address=config['smtp_address'],
+        port_number=config['smtp_port_number'],
+        ssl_needed=config['smtp_ssl_needed'],
+        recipient_addresses=config['email_recipient_addresses'],
+        subject=config['email_subject'],
+        msg_body='guardian',
+        attachments_path=mobi_filename
+    )
+
+    # Send the email
+    sender.send()

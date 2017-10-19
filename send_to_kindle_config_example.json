@@ -1,0 +1,10 @@
+{
+
+	"email_id": "example@example.com",
+	"email_pw": "example",
+	"smtp_address": "smtp.example.com",
+	"smtp_port_number": 465,
+	"smtp_ssl_needed": true,
+	"email_recipient_addresses": "example@example.com",
+        "email_subject": "guardian"
+}
