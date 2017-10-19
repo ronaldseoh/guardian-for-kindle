@@ -64,6 +64,9 @@ email_send = True
 
 sleep_seconds_after_api_call = 2
 
+# Always set wherever this script is located as working directory
+os.chdir(os.path.dirname(sys.argv[0]))
+
 api_key = None
 
 with open('guardian-open-platform-key') as fp:
