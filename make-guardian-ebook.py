@@ -53,6 +53,10 @@ from PIL import Image, ImageDraw, ImageFont
 #
 # ========================================================================
 
+blacklisted_section_names = ['pictures']
+
+get_paper_articles = False
+
 sleep_seconds_after_api_call = 2
 
 api_key = None
@@ -79,7 +83,7 @@ sunday = (date.today().isoweekday() == 7)
 
 # Set up various variable that we need below:
 
-paper = "The Observer" if sunday else "The Guardian"
+paper = "The Observer" if sunday and get_paper_articles else "The Guardian"
 book_id = "Guardian_"+today
 book_title = paper + " on "+today_long
 book_title_short = paper + " (Unofficial)"
@@ -118,7 +122,7 @@ im = Image.new("L",(w,h),"white")
 
 logo_filename = os.path.join(
     "..",
-    ("observer" if sunday else "guardian")+"-logo-500.png"
+    ("observer" if sunday and get_paper_articles else "guardian")+"-logo-500.png"
 )
 
 im_logo = Image.open(logo_filename)
@@ -199,9 +203,15 @@ def url_to_element_tree(url):
 # Iterate over every link found in the "All Guardian Stories" page for
 # today, and generate a version of each story in very simple HTML:
 
-today_page_url = "http://www.theguardian.com/theguardian"
-if sunday:
-    today_page_url = "http://www.theguardian.com/theobserver"
+if get_paper_articles:
+    if sunday:
+        today_page_url = "http://www.theguardian.com/theobserver"
+    else:
+        today_page_url = "http://www.theguardian.com/theguardian"
+else:
+    # Change the url here if you want to get online editions of
+    # other regions (US, AU, International)
+    today_page_url = "http://www.theguardian.com/uk"
 
 today_page = str(urlopen(today_page_url).read(), encoding='utf-8')
 today_filename = 'today.html'
@@ -232,20 +242,32 @@ def element_to_string(element):
     return s
 
 def get_sections_and_links(element_tree):
+
     result = []
+
     for section_div in element_tree.findall('//div[@class="fc-container__inner"]'):
         section_title_div = section_div.find('.//div[@class="fc-container__header__title"]')
-        section = element_to_string(section_title_div).strip()
-        link_xpath = './/a[@class="u-faux-block-link__overlay js-headline-text"]'
-        result.append(
-            (
-                section,
-                [
-                    (a.attrib['href'], a.text)
-                    for a in section_div.findall(link_xpath)
-                ]
-            )
-        )
+
+        if section_title_div == None:
+            continue
+        else:
+            # Section name
+            section = element_to_string(section_title_div).strip()
+
+            # Ignore certain sections based on their names
+            if section.lower() in blacklisted_section_names:
+                continue
+            else:
+                link_xpath = './/a[@class="u-faux-block-link__overlay js-headline-text"]'
+                result.append(
+                    (
+                        section,
+                        [
+                            (a.attrib['href'], a.text)
+                            for a in section_div.findall(link_xpath)
+                        ]
+                    )
+                )
     return result
 
 with open(today_filename) as fp:
