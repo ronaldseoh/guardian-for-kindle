@@ -38,6 +38,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 from bws_mailer import EmailSender
 import base64
+import tempfile
 
 # This script will create an opf version of The Guardian (or The
 # Observer on Sunday) suitable for turning into a .mobi file for
@@ -64,12 +65,14 @@ email_send = True
 
 sleep_seconds_after_api_call = 2
 
-# Always set wherever this script is located as working directory
-os.chdir(os.path.dirname(sys.argv[0]))
+# Check the path of the directory where this script is located
+# to read keys and config files 
+# (Ignore symbolic links)
+script_location = os.path.dirname(os.path.realpath(__file__))
 
 api_key = None
 
-with open('guardian-open-platform-key') as fp:
+with open(os.path.join(script_location, 'guardian-open-platform-key')) as fp:
     api_key = fp.read().strip()
 
 def ordinal_suffix(n):
@@ -84,8 +87,12 @@ today_date = date.today()
 today = str(today_date)
 day = today_date.day
 today_long = today_date.strftime("%A the {0}{1} of %B, %Y").format(day,ordinal_suffix(day))
-check_call(['mkdir','-p',today])
-os.chdir(today)
+
+today_temp_directory_path = os.path.join(tempfile.gettempdir(), 'guardian_kindle', today)
+
+check_call(['mkdir', '-p', today_temp_directory_path])
+
+os.chdir(today_temp_directory_path)
 
 sunday = (date.today().isoweekday() == 7)
 
@@ -129,7 +136,7 @@ if not font_filename:
 im = Image.new("L",(w,h),"white")
 
 logo_filename = os.path.join(
-    "..",
+    script_location,
     ("observer" if sunday and get_paper_articles else "guardian")+"-logo-500.png"
 )
 
@@ -637,7 +644,8 @@ with open(opf_filename,"wb") as fp:
 
 with open("/dev/null","w") as null:
     try:
-        call(['kindlegen','-c2','-o',mobi_filename,opf_filename])
+        kindlegen_location = os.path.join(script_location, 'kindlegen')
+        call([kindlegen_location,'-c2','-o',mobi_filename,opf_filename])
     except OSError as e:
         if e.errno == errno.ENOENT:
             print("Warning: kindlegen was not on your path; not generating .mobi version")
@@ -645,7 +653,7 @@ with open("/dev/null","w") as null:
             raise
 
 if email_send:
-    with open(os.path.join("..","send_to_kindle_config.json"), 'r') as config_file:
+    with open(os.path.join(script_location,"send_to_kindle_config.json"), 'r') as config_file:
         config = json.load(config_file)
 
     # We will encode the email id/pw with base64, to make them look obscure (but not really) on config files.
