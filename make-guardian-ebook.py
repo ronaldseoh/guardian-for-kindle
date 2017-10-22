@@ -403,8 +403,8 @@ with open(today_filename) as fp:
                         E.meta( { 'name': 'description', 'content' : standfirst if standfirst else ''} ) ),
                     html_body )
 
-            with open(page_filename,"w") as page_fp:
-                page_fp.write( str(etree.tostring(html,pretty_print=True)) )
+            with open(page_filename,"wb") as page_fp:
+                page_fp.write(etree.tostring(html,pretty_print=True))
 
             filename_to_headline[page_filename] = strip_html(headline)
             filename_to_section[page_filename] = section
