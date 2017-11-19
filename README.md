@@ -6,4 +6,4 @@ If you just want to read the Guardian on your Kindle, I suggest you to download 
 
 ## License
 
-`guardian-for-kindle` is licensed under GNU AGPL3 License. Check [COPYING](COPYING).
+`guardian-for-kindle` is licensed under GNU AGPL3 License. Check [LICENSE](LICENSE).
