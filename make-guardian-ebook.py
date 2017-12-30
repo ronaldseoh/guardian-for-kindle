@@ -645,7 +645,7 @@ with open(opf_filename,"wb") as fp:
 with open("/dev/null","w") as null:
     try:
         kindlegen_location = os.path.join(script_location, 'kindlegen')
-        call([kindlegen_location,'-c2','-o',mobi_filename,opf_filename])
+        call([kindlegen_location,'-c2','-dont_append_source','-o',mobi_filename,opf_filename])
     except OSError as e:
         if e.errno == errno.ENOENT:
             print("Warning: kindlegen was not on your path; not generating .mobi version")
