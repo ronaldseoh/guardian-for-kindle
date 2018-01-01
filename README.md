@@ -4,6 +4,8 @@ This repository contains a forked version of [Mark Longair's `guardian-for-kindl
 
 If you just want to read the Guardian on your Kindle, I suggest you to download the automatically generated output from [Mark Longair's website](http://mythic-beasts.com/~mark/random/guardian-for-kindle/), or even better, [purchase the official Kindle version from Amazon.](https://www.amazon.com/The-Guardian-and-the-Observer/dp/B004MME3M8)
 
+** Please note that `guardian-for-kindle` currently does NOT work on Windows. **
+
 ## License
 
 `guardian-for-kindle` is licensed under GNU AGPL3 License. Check [LICENSE](LICENSE).

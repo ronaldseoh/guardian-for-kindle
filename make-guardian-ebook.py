@@ -44,24 +44,11 @@ import tempfile
 # Observer on Sunday) suitable for turning into a .mobi file for
 # copying to your Kindle.
 
-# The script has several dependencies:
-#
-#  sudo apt-get install python2.6-minimal python-imaging python-lxml imagemagick
-#
-# You need to put your API key in ~/.guardian-open-platform-key
-#
-# Also, if the kindlegen binary is on your PATH, a version of the book
-# for kindle will be generated.  (Otherwise you just have the OPF
-# version.)  kindlegen is available from:
-#   http://www.amazon.com/gp/feature.html?ie=UTF8&docId=1000234621
-#
-# ========================================================================
-
 blacklisted_section_names = ['pictures']
 
 get_paper_articles = False
 
-email_send = True
+email_send = False
 
 sleep_seconds_after_api_call = 2
 
@@ -100,9 +87,9 @@ sunday = (date.today().isoweekday() == 7)
 
 paper = "The Observer" if sunday and get_paper_articles else "The Guardian"
 book_id = "Guardian_"+today
-book_title = paper + " on "+today_long
+book_title = paper + " on " + today_long
 book_title_short = paper + " (Unofficial)"
-book_basename = "guardian-"+today
+book_basename = "guardian-" + today
 
 # ========================================================================
 # Now draw the cover image:
@@ -148,7 +135,7 @@ im.paste(im_logo, ((w-logo_size[0])//2, top_offset))
 subtitle = [ today_long,
              '',
              'Unoffical Kindle version based on the Guardian Open Platform',
-             'Email: Mark Longair <mark-guardiankindle@longair.net>' ]
+             'Email: Ronald Seoh <ronaldseoh@icloud.com>' ]
 
 font = ImageFont.truetype(font_filename,18)
 draw = ImageDraw.Draw(im)
@@ -191,20 +178,42 @@ def url_to_element_tree(url):
     h = sha1(url.encode('UTF-8')).hexdigest()
     filename = h+".xml"
     if not os.path.exists(filename):
-        try:
-            text = str(urlopen(url).read(), encoding='utf-8')
-        except HTTPError as e:
-            print("e is:", e)
-            if e.code == 403:
-                time.sleep(sleep_seconds_after_api_call)
-                error_message = get_error_message_from_content(e)
-                raise ArticleAccessDenied(error_message)
-            # Otherwise it's probably a 404, an article that's now been removed:
-            elif e.code == 404:
-                time.sleep(sleep_seconds_after_api_call)
-                raise ArticleMissing(get_error_message_from_content(e))
-            else:
-                raise Exception("An unexpected HTTPError was returned: "+str(e))
+
+        request_try_count = 0
+        request_complete = False
+
+        text = ''
+
+        while request_try_count <= 30 and not request_complete:
+            try:
+                text = str(urlopen(url).read(), encoding='utf-8')
+                request_complete = True
+
+            except HTTPError as e:
+                print("e is:", e)
+
+                if e.code == 403:
+                    time.sleep(sleep_seconds_after_api_call)
+                    error_message = get_error_message_from_content(e)
+                    request_complete = True
+                    raise ArticleAccessDenied(error_message)
+
+                # Otherwise it's probably a 404, an article that's now been removed:
+                elif e.code == 404:
+                    time.sleep(sleep_seconds_after_api_call)
+
+                    if request_try_count >= 30:
+                        request_complete = True
+                        raise ArticleMissing(get_error_message_from_content(e))
+                    else:
+                        request_try_count += 1
+
+                else:
+                    if request_try_count >= 30:
+                        request_complete = True
+                        raise Exception("An unexpected HTTPError was returned: " + str(e))
+                    else:
+                        request_try_count += 1
 
         # Sleep to avoid making API requests faster than is allowed:
         time.sleep(sleep_seconds_after_api_call)
@@ -355,32 +364,87 @@ with open(today_filename) as fp:
             page_filename = "{0:03d}.html".format(page_number)
 
             html_body = E.body(E.h3(headline))
+
             if byline:
                 html_body.append( E.h4('By '+byline) )
             html_body.append( E.p('[{s}]'.format(s=section)) )
+
             if standfirst:
                 standfirst_fragments = fragments_fromstring(standfirst)
                 standfirst_element = E.p( E.em( *standfirst_fragments ) )
                 html_body.append( standfirst_element )
+
             if thumbnail:
                 extension = re.sub('^.*\.','',thumbnail)
                 thumbnail_filename = "{0:03d}-thumb.{1:}".format(page_number,extension)
+
                 if not os.path.exists(thumbnail_filename):
                     # thumbnail seems to be a binary, not a text string.
-                    with open(thumbnail_filename,"wb") as fp:
-                        fp.write(
-                            urlopen(
-                                thumbnail
-                            ).read()
-                        )
+                    with open(thumbnail_filename, "wb") as fp:
+                        request_try_count = 0
+                        request_complete = False
+
+                        while request_try_count <= 30 and not request_complete:
+                            try:
+                                fp.write(
+                                    urlopen(
+                                        thumbnail
+                                    ).read()
+                                )
+                                request_complete = True
+                            except HTTPError as e:
+                                print("Error occurred on thumbnail request:", e)
+                                if e.code == 403:
+                                    time.sleep(sleep_seconds_after_api_call)
+                                    request_complete = True
+                                # Otherwise it's probably a 404, 
+                                # an article that's now been removed:
+                                elif e.code == 404:
+                                    time.sleep(sleep_seconds_after_api_call)
+                                    if request_try_count >= 30:
+                                        request_complete = True
+                                    else:
+                                        request_try_count += 1
+                                else:
+                                    if request_try_count >= 30:
+                                        request_complete = True
+                                    else:
+                                        request_try_count += 1
+
                 files.append(thumbnail_filename)
                 html_body.append( E.p( E.img( { 'src': thumbnail_filename } ) ) )
+
             if body:
                 body_element_tree = etree.parse(StringIO(body),html_parser)
                 image_elements = body_element_tree.findall('//img')
                 for i, image_element in enumerate(image_elements):
                     ad_url = image_element.attrib['src']
-                    ad_image_data = urlopen(ad_url).read()
+
+                    request_try_count = 0
+                    request_complete = False
+
+                    while request_try_count <= 30 and not request_complete:
+                        try:
+                            ad_image_data = urlopen(ad_url).read()
+                            request_complete = True
+                        except HTTPError as e:
+                            print("Error occurred on ad image request:", e)
+                            if e.code == 403:
+                                time.sleep(sleep_seconds_after_api_call)
+                                request_complete = True
+                            # Otherwise it's probably a 404, 
+                            # an article that's now been removed:
+                            elif e.code == 404:
+                                time.sleep(sleep_seconds_after_api_call)
+                                if request_try_count >= 30:
+                                    request_complete = True
+                                else:
+                                    request_try_count += 1
+                            else:
+                                if request_try_count >= 30:
+                                    request_complete = True
+                                else:
+                                    request_try_count += 1
 
                     ad_image_hash = sha1(ad_image_data).hexdigest()
                     ad_filename = 'ad-{0}.gif'.format(ad_image_hash)
@@ -392,6 +456,7 @@ with open(today_filename) as fp:
                     image_element.attrib['src'] = ad_filename
                 for e in body_element_tree.getroot()[0]:
                     html_body.append(e)
+
             if short_url:
                 html_body.append( E.p('Original story: ', E.a( { 'href': short_url }, short_url ) ) )
             html_body.append( E.p( 'Content from the ', E.a( { 'href' : 'http://www.guardian.co.uk/open-platform' }, "Guardian Open Platform" ) ) )
