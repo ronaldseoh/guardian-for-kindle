@@ -36,7 +36,7 @@ from lxml.builder import E
 from lxml.html import fragments_fromstring
 from PIL import Image, ImageDraw, ImageFont
 
-from bws_mailer import EmailSender
+from rs_mailer import EmailSender
 import base64
 import tempfile
 
