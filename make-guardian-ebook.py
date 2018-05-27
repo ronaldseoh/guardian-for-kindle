@@ -40,10 +40,19 @@ from rs_mailer import EmailSender
 import base64
 import tempfile
 
+import requests
+from readability import Document
+from lxml.html.clean import Cleaner
+
+cleaner = Cleaner()
+cleaner.javascript = True
+cleaner.style = True
+cleaner.remove_tags = ['div', 'span']
+cleaner.kill_tags = ['svg']
+
 # This script will create an opf version of The Guardian (or The
 # Observer on Sunday) suitable for turning into a .mobi file for
 # copying to your Kindle.
-
 blacklisted_section_names = ['pictures']
 
 get_paper_articles = False
@@ -360,6 +369,11 @@ with open(today_filename) as fp:
                 headline = link_text
                 body = "<p><b>The Guardian Open Platform returned an error for that article: {0}</b></p>".format(e)
                 body += '<p>You can still try <a href="{0}">the original article link</a></p>'.format(link_url)
+
+                force_request = requests.get(link_url)
+                force_article = Document(force_request.text)
+
+                body += cleaner.clean_html(force_article.summary())
 
             page_filename = "{0:03d}.html".format(page_number)
 
