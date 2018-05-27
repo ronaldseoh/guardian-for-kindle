@@ -22,7 +22,7 @@ import sys
 import os
 import re
 from shutil import copyfile
-from datetime import date
+from datetime import date, datetime
 from subprocess import Popen, check_call, call, PIPE
 from hashlib import sha1
 from urllib.request import urlopen
@@ -79,7 +79,7 @@ def ordinal_suffix(n):
     else:
         return "th"
 
-today_date = date.today()
+today_date = datetime.utcnow().date()
 today = str(today_date)
 day = today_date.day
 today_long = today_date.strftime("%A the {0}{1} of %B, %Y").format(day,ordinal_suffix(day))
