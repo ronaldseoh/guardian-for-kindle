@@ -244,7 +244,7 @@ if get_paper_articles:
 else:
     # Change the url here if you want to get online editions of
     # other regions (US, AU, International)
-    today_page_url = "http://www.theguardian.com/uk"
+    today_page_url = "http://www.theguardian.com/international"
 
 today_page = str(urlopen(today_page_url).read(), encoding='utf-8')
 today_filename = 'today.html'
